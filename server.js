@@ -16,8 +16,10 @@ import exportRoutes from './src/routes/export.js';
 // Load env vars
 dotenv.config();
 
-// Connect to database
-connectDB();
+// Connect to database (async, but don't block serverless function)
+connectDB().catch((error) => {
+  console.error('Database connection error:', error);
+});
 
 const app = express();
 
@@ -54,11 +56,16 @@ app.use((req, res, next) => {
 // Error handler (must be last)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3001;
+// Export app for Vercel serverless functions
+export default app;
 
-// Listen on all network interfaces (0.0.0.0) so emulator can connect
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Accessible at: http://localhost:${PORT} or http://192.168.100.59:${PORT}`);
-});
+// Only start server if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3001;
+  // Listen on all network interfaces (0.0.0.0) so emulator can connect
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Accessible at: http://localhost:${PORT} or http://192.168.100.59:${PORT}`);
+  });
+}
 
