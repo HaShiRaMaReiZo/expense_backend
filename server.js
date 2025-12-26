@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import connectDB from './src/config/database.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
 
@@ -16,12 +17,28 @@ import exportRoutes from './src/routes/export.js';
 // Load env vars
 dotenv.config();
 
-// Connect to database (async, but don't block serverless function)
-connectDB().catch((error) => {
-  console.error('Database connection error:', error);
-});
-
 const app = express();
+
+// Connect to database before handling requests (for serverless)
+let dbConnected = false;
+const ensureDBConnection = async (req, res, next) => {
+  if (!dbConnected && mongoose.connection.readyState !== 1) {
+    try {
+      await connectDB();
+      dbConnected = true;
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection failed',
+      });
+    }
+  }
+  next();
+};
+
+// Apply DB connection middleware to all routes
+app.use(ensureDBConnection);
 
 // Middleware
 app.use(cors());
